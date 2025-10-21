@@ -10,6 +10,4 @@ Repository for the COMP6447 assignment at UNSW to create a fuzzer. Spec can be f
 ### Example usage:
 ```bash
 gdb --interpreter=mi2 commands.gdb r < outputs/manual_input_payload.txt
-
 ```
-
