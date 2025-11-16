@@ -109,6 +109,37 @@ class JPEG_mutator:
             data = segments[segment_name]
             r = random.randint(0, len(data))
 
+    def sos_mutate(self, segment, component_mutation=None): 
+        def component_deletion(num,components):
+            for i in range(num):
+                if not components:
+                    break
+                idx = random.randint(0, len(components))
+                del components[idx]
+            return components
+
+        def component_pure_mutation(num):
+            components = data.components
+            return component_deletion(random.randint(0, len(components)), components)
+
+        def component_sync_mutation(num):
+            components = data.components
+            return component_deletion(num, components)
+
+        marker, length, data, order = segment
+        
+        if component_mutation:
+            data.num_components = random.randint(0, data.num_components)
+            
+            strat = random.choice([component_pure_mutation, component_sync_mutation]) 
+            strat(data.num_components)
+
+        r = random.randint(0, len(data))
+
+        mutated = data[:r] + b'\xff' + data[r + 1:]
+
+        return mutated
+
     def single_segment_agnostic_mutation(self, segment: tuple):
         marker, length, data, order = segment   # Order kinda useless here
         

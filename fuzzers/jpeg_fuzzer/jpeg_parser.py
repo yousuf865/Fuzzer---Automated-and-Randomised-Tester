@@ -107,9 +107,6 @@ class JPEGparser:
             curr += 3
         return data_precision, image_height, image_width, num_components, components
 
-    def SOS_parse(self, segment: tuple):
-        # TODO
-        pass
 
     # Remake the jpeg
     # --------------------

@@ -25,6 +25,8 @@ else:
 
             print(f"[{segment_name}][{hex(segment.marker)}] Length: {segment_length}")
             print(f"[{segment_name}] Data: {segment_data}")
-            
+
+            if segment.marker == 0xda:
+                print(f"num_____: {segment_data.num_components}")
     except Exception as e:
         print(f"An error occurred during parsing: {e}")
