@@ -1,7 +1,9 @@
 from jpeg import Jpeg
 
+import struct
+
 class JPEGparser:
-    def _init_(self):
+    def __init__(self):
         self.markers = {}
         #self.markers = {
         #    'tem': [],         # 0x01
@@ -51,15 +53,15 @@ class JPEGparser:
                 segment_name = segment.marker.name
                 segment_data = getattr(segment, 'data', None)
                 segment_length = getattr(segment, 'length', None)
-                full_marker = b'FF' + segment.marker
-                self.markers.setdefault(segment_name,[]).append((full_marker, segment_length, segment_data, order))
+                full_marker = (0xff << 8) | segment.marker.value
+                self.markers.setdefault(segment_name,[]).append((full_marker, segment_length, segment_data, order, segment))
 
             return self.markers
         except Exception as e:
             print(f"An error occured during Parsing: {e}")
 
     # Parse Huffman Table
-    def dht_table_parse(self, dht_elem->tuple) -> list:
+    def dht_table_parse(self, dht_elem: tuple) -> list:
         dht_data = dht_elem[1]
         
         table_data = []
@@ -107,11 +109,59 @@ class JPEGparser:
             curr += 3
         return data_precision, image_height, image_width, num_components, components
 
+    def app0_reconsutrction(self, marker_val, length, data):
+        raw_segment = struct.pack('>HH', marker_val, length)
+        raw_segment += struct.pack(
+            '> 5s B B B H H B B',
+            data.magic,                        # 5s: b'JFIF\x00' (Assuming it's b'JFIF\x00')
+            data.version_major,                # B: 1 byte
+            data.version_minor,                # B: 1 byte
+            data.density_unit,                 # B: 1 byte
+            data.density_x,                    # H: 2 bytes
+            data.density_y,                    # H: 2 bytes
+            data.thumbnail_x,                  # B: 1 byte
+            data.thumbnail_y                   # B: 1 byte
+        )
+        
+        # TODO thumbnail field parse
+
+        return raw_segment
+
+    def SOS_header_reconstruction(self, marker_val, length, data):
+        raw_segment = struct.pack('>HH', marker_val, length)
+        raw_segment += struct.pack('>H', data.num_components)
+        
+        # FOR SOS PROBABLY JUST KEEP THE NUM_COMPONENTS AND COMPONENTS SYNCED UP
+        for i in range(data.num_components):
+            raw_segment += struct.pack('>HH', data.components[i].id, data.components[i].huffman_table)
+        
+        raw_segment += struct.pack(
+            '>HHH', 
+            data.start_spectral_selection
+            data.end_spectral
+            data.appr_bit_pos
+        )
+
+        return raw_segment
+    
+    def byte_stuffing(self, image_data):
+        data = bytearray(image_data)
+
+        curr = 0
+        while True:
+            curr = data.find(b'\xff', curr)
+            if curr == -1:
+                break
+
+            data.insert(curr + 1, 0x00)
+
+            curr += 2
+        return bytes(data)
 
     # Remake the jpeg
     # --------------------
     # Current syntax of segments are (length, data, order)
-    def jpeg_constructor(self, segments_set: Any) -> bytes:
+    def jpeg_constructor(self, segments_set) -> bytes:
 
         # --- 1. Order Segments ---
         segments_ordered = []
@@ -125,46 +175,34 @@ class JPEGparser:
         # --- 2. Prepare (Stuff Bytes and Recalculate Lengths) ---
         reconstructed_segments = []
 
-        for marker_val, _, data_payload, order in segments_ordered:
+        for marker_val, length, data_payload, order, segment in segments_ordered:
 
             processed_data = data_payload
-
-            # Byte Stuffing is ONLY required for the compressed data stream (which follows SOS, 0xFFDA)
-            # The last segment in a normal stream is usually the compressed data block itself.
-            is_compressed_data = (marker_val == 0xFFDA or order == len(segments_ordered) - 1)
-
-            # The simplified logic assumes the last segment is the data *if* it follows SOS,
-            # but usually, you only stuff the data payload itself, which is a different item
-            # than the marker segments, but we'll adapt to your current structure:
-
-            if marker_val == 0xffda: # We assume this is the SOS segment
-                 # You should only stuff the data *after* the SOS marker
-                 # The current structure forces stuffing of the SOS *payload*, which is WRONG.
-                 # For now, we only stuff if it's the compressed data stream itself (not the SOS marker)
-                 # We will skip stuffing here since it's the SOS marker payload.
-                 pass
-
-            if len(segments_ordered) > 1 and order == len(segments_ordered) - 1:
-                # Assuming the last item in the list is the compressed data block
-                processed_data = self._stuff_bytes(data_payload)
-
-            # --- 3. Construct the Raw Bytes for the Segment ---
 
             # SOI (FF D8) and EOI (FF D9) have no length/data fields
             if marker_val in (0xffd8, 0xffd9):
                 raw_segment = struct.pack('>H', marker_val) # Write 2-byte marker
 
             # All other segments require Marker + Length + Data
-            elif marker_val != 0xFFDA: # Don't reconstruct SOS here since it's the raw data
+            elif marker_val not in (0xFFDA, 0xffe0): # Don't reconstruct SOS here since it's the raw data
 
                 # Length value = (Payload size + 2 bytes for the length field itself)
-                length_value = len(processed_data) + 2
-
+                length_value = length
+                
+                print('data: ')
+                print(processed_data)
                 raw_segment = struct.pack('>H', marker_val)
                 raw_segment += struct.pack('>H', length_value) # Write 2-byte Big-Endian Length
                 raw_segment += processed_data                  # Write Data Payload
+            
+            elif marker_val == 0xffe0:
+                raw_segment = app0_reconstruction(marker_val, length, data_payload)
+
+            elif marker_val == 0xFFDA:
+                raw_segment = SOS_header_reconstruction(marker_val, length, data_payload)
+                raw_segment += byte_stuffing(segment.image_data)
 
             reconstructed_segments.append(raw_segment)
-
+        
         # --- 4. Final Output ---
         return b"".join(reconstructed_segments)

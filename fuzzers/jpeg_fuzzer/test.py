@@ -22,12 +22,13 @@ else:
             segment_name = segment.marker.name
             segment_length = getattr(segment, 'length', 'N/A')
             segment_data = getattr(segment, 'data', 'N/A')
-
-            print(f"[{segment_name}][{hex(segment.marker)}] Length: {segment_length}")
+            
+            mark = (0xFF << 8) | segment.marker.value
+            print(f"[{segment_name}][{hex(mark)}] Length: {segment_length}")
             print(f"[{segment_name}] Data: {segment_data}")
 
-            if segment.marker == 0xda:
-                print(f"num_____: {segment_data.num_components}")
+            if segment.marker == 0xe0:
+                print(f"num_____: {segment_data.density_x.to_bytes(2)}")
 
 
     except Exception as e:

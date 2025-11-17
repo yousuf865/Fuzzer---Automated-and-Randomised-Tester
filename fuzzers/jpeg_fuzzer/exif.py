@@ -3,6 +3,7 @@
 
 import kaitaistruct
 from kaitaistruct import KaitaiStruct, KaitaiStream, BytesIO
+import collections
 from enum import IntEnum
 
 
@@ -10,15 +11,21 @@ if getattr(kaitaistruct, 'API_VERSION', (0, 9)) < (0, 11):
     raise Exception("Incompatible Kaitai Struct Python API: 0.11 or later is required, but you have %s" % (kaitaistruct.__version__))
 
 class Exif(KaitaiStruct):
+    SEQ_FIELDS = ["endianness", "body"]
     def __init__(self, _io, _parent=None, _root=None):
         super(Exif, self).__init__(_io)
         self._parent = _parent
         self._root = _root or self
+        self._debug = collections.defaultdict(dict)
         self._read()
 
     def _read(self):
+        self._debug['endianness']['start'] = self._io.pos()
         self.endianness = self._io.read_u2le()
+        self._debug['endianness']['end'] = self._io.pos()
+        self._debug['body']['start'] = self._io.pos()
         self.body = Exif.ExifBody(self._io, self, self._root)
+        self._debug['body']['end'] = self._io.pos()
 
 
     def _fetch_instances(self):
@@ -26,10 +33,12 @@ class Exif(KaitaiStruct):
         self.body._fetch_instances()
 
     class ExifBody(KaitaiStruct):
+        SEQ_FIELDS = ["version", "ifd0_ofs"]
         def __init__(self, _io, _parent=None, _root=None):
             super(Exif.ExifBody, self).__init__(_io)
             self._parent = _parent
             self._root = _root
+            self._debug = collections.defaultdict(dict)
             self._read()
 
         def _read(self):
@@ -48,12 +57,20 @@ class Exif(KaitaiStruct):
                 self._read_be()
 
         def _read_le(self):
+            self._debug['version']['start'] = self._io.pos()
             self.version = self._io.read_u2le()
+            self._debug['version']['end'] = self._io.pos()
+            self._debug['ifd0_ofs']['start'] = self._io.pos()
             self.ifd0_ofs = self._io.read_u4le()
+            self._debug['ifd0_ofs']['end'] = self._io.pos()
 
         def _read_be(self):
+            self._debug['version']['start'] = self._io.pos()
             self.version = self._io.read_u2be()
+            self._debug['version']['end'] = self._io.pos()
+            self._debug['ifd0_ofs']['start'] = self._io.pos()
             self.ifd0_ofs = self._io.read_u4be()
+            self._debug['ifd0_ofs']['end'] = self._io.pos()
 
 
         def _fetch_instances(self):
@@ -65,11 +82,13 @@ class Exif(KaitaiStruct):
 
 
         class Ifd(KaitaiStruct):
+            SEQ_FIELDS = ["num_fields", "fields", "next_ifd_ofs"]
             def __init__(self, _io, _parent=None, _root=None, _is_le=None):
                 super(Exif.ExifBody.Ifd, self).__init__(_io)
                 self._parent = _parent
                 self._root = _root
                 self._is_le = _is_le
+                self._debug = collections.defaultdict(dict)
                 self._read()
 
             def _read(self):
@@ -81,20 +100,38 @@ class Exif(KaitaiStruct):
                     self._read_be()
 
             def _read_le(self):
+                self._debug['num_fields']['start'] = self._io.pos()
                 self.num_fields = self._io.read_u2le()
+                self._debug['num_fields']['end'] = self._io.pos()
+                self._debug['fields']['start'] = self._io.pos()
+                self._debug['fields']['arr'] = []
                 self.fields = []
                 for i in range(self.num_fields):
+                    self._debug['fields']['arr'].append({'start': self._io.pos()})
                     self.fields.append(Exif.ExifBody.IfdField(self._io, self, self._root, self._is_le))
+                    self._debug['fields']['arr'][i]['end'] = self._io.pos()
 
+                self._debug['fields']['end'] = self._io.pos()
+                self._debug['next_ifd_ofs']['start'] = self._io.pos()
                 self.next_ifd_ofs = self._io.read_u4le()
+                self._debug['next_ifd_ofs']['end'] = self._io.pos()
 
             def _read_be(self):
+                self._debug['num_fields']['start'] = self._io.pos()
                 self.num_fields = self._io.read_u2be()
+                self._debug['num_fields']['end'] = self._io.pos()
+                self._debug['fields']['start'] = self._io.pos()
+                self._debug['fields']['arr'] = []
                 self.fields = []
                 for i in range(self.num_fields):
+                    self._debug['fields']['arr'].append({'start': self._io.pos()})
                     self.fields.append(Exif.ExifBody.IfdField(self._io, self, self._root, self._is_le))
+                    self._debug['fields']['arr'][i]['end'] = self._io.pos()
 
+                self._debug['fields']['end'] = self._io.pos()
+                self._debug['next_ifd_ofs']['start'] = self._io.pos()
                 self.next_ifd_ofs = self._io.read_u4be()
+                self._debug['next_ifd_ofs']['end'] = self._io.pos()
 
 
             def _fetch_instances(self):
@@ -119,9 +156,13 @@ class Exif(KaitaiStruct):
                     _pos = self._io.pos()
                     self._io.seek(self.next_ifd_ofs)
                     if self._is_le:
+                        self._debug['_m_next_ifd']['start'] = self._io.pos()
                         self._m_next_ifd = Exif.ExifBody.Ifd(self._io, self, self._root, self._is_le)
+                        self._debug['_m_next_ifd']['end'] = self._io.pos()
                     else:
+                        self._debug['_m_next_ifd']['start'] = self._io.pos()
                         self._m_next_ifd = Exif.ExifBody.Ifd(self._io, self, self._root, self._is_le)
+                        self._debug['_m_next_ifd']['end'] = self._io.pos()
                     self._io.seek(_pos)
 
                 return getattr(self, '_m_next_ifd', None)
@@ -598,11 +639,13 @@ class Exif(KaitaiStruct):
                 sharpness2 = 65110
                 smoothness = 65111
                 moire_filter = 65112
+            SEQ_FIELDS = ["tag", "field_type", "length", "ofs_or_data"]
             def __init__(self, _io, _parent=None, _root=None, _is_le=None):
                 super(Exif.ExifBody.IfdField, self).__init__(_io)
                 self._parent = _parent
                 self._root = _root
                 self._is_le = _is_le
+                self._debug = collections.defaultdict(dict)
                 self._read()
 
             def _read(self):
@@ -614,16 +657,32 @@ class Exif(KaitaiStruct):
                     self._read_be()
 
             def _read_le(self):
+                self._debug['tag']['start'] = self._io.pos()
                 self.tag = KaitaiStream.resolve_enum(Exif.ExifBody.IfdField.TagEnum, self._io.read_u2le())
+                self._debug['tag']['end'] = self._io.pos()
+                self._debug['field_type']['start'] = self._io.pos()
                 self.field_type = KaitaiStream.resolve_enum(Exif.ExifBody.IfdField.FieldTypeEnum, self._io.read_u2le())
+                self._debug['field_type']['end'] = self._io.pos()
+                self._debug['length']['start'] = self._io.pos()
                 self.length = self._io.read_u4le()
+                self._debug['length']['end'] = self._io.pos()
+                self._debug['ofs_or_data']['start'] = self._io.pos()
                 self.ofs_or_data = self._io.read_u4le()
+                self._debug['ofs_or_data']['end'] = self._io.pos()
 
             def _read_be(self):
+                self._debug['tag']['start'] = self._io.pos()
                 self.tag = KaitaiStream.resolve_enum(Exif.ExifBody.IfdField.TagEnum, self._io.read_u2be())
+                self._debug['tag']['end'] = self._io.pos()
+                self._debug['field_type']['start'] = self._io.pos()
                 self.field_type = KaitaiStream.resolve_enum(Exif.ExifBody.IfdField.FieldTypeEnum, self._io.read_u2be())
+                self._debug['field_type']['end'] = self._io.pos()
+                self._debug['length']['start'] = self._io.pos()
                 self.length = self._io.read_u4be()
+                self._debug['length']['end'] = self._io.pos()
+                self._debug['ofs_or_data']['start'] = self._io.pos()
                 self.ofs_or_data = self._io.read_u4be()
+                self._debug['ofs_or_data']['end'] = self._io.pos()
 
 
             def _fetch_instances(self):
@@ -652,9 +711,13 @@ class Exif(KaitaiStruct):
                     _pos = io.pos()
                     io.seek(self.ofs_or_data)
                     if self._is_le:
+                        self._debug['_m_data']['start'] = io.pos()
                         self._m_data = io.read_bytes(self.byte_length)
+                        self._debug['_m_data']['end'] = io.pos()
                     else:
+                        self._debug['_m_data']['start'] = io.pos()
                         self._m_data = io.read_bytes(self.byte_length)
+                        self._debug['_m_data']['end'] = io.pos()
                     io.seek(_pos)
 
                 return getattr(self, '_m_data', None)
@@ -684,9 +747,13 @@ class Exif(KaitaiStruct):
             _pos = self._io.pos()
             self._io.seek(self.ifd0_ofs)
             if self._is_le:
+                self._debug['_m_ifd0']['start'] = self._io.pos()
                 self._m_ifd0 = Exif.ExifBody.Ifd(self._io, self, self._root, self._is_le)
+                self._debug['_m_ifd0']['end'] = self._io.pos()
             else:
+                self._debug['_m_ifd0']['start'] = self._io.pos()
                 self._m_ifd0 = Exif.ExifBody.Ifd(self._io, self, self._root, self._is_le)
+                self._debug['_m_ifd0']['end'] = self._io.pos()
             self._io.seek(_pos)
             return getattr(self, '_m_ifd0', None)
 
