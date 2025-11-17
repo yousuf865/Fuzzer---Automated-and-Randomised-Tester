@@ -129,14 +129,14 @@ class JPEGparser:
 
     def SOS_header_reconstruction(self, marker_val, length, data):
         raw_segment = struct.pack('>HH', marker_val, length)
-        raw_segment += struct.pack('>H', data.num_components)
+        raw_segment += struct.pack('>B', data.num_components)
         
         # FOR SOS PROBABLY JUST KEEP THE NUM_COMPONENTS AND COMPONENTS SYNCED UP
         for i in range(data.num_components):
-            raw_segment += struct.pack('>HH', data.components[i].id, data.components[i].huffman_table)
+            raw_segment += struct.pack('>BB', data.components[i].id, data.components[i].huffman_table)
         
         raw_segment += struct.pack(
-            '>HHH', 
+            '>BBB', 
             data.start_spectral_selection
             data.end_spectral
             data.appr_bit_pos
