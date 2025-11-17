@@ -114,7 +114,7 @@ class JPEGparser:
     def jpeg_constructor(self, segments_set: Any) -> bytes:
 
         # --- 1. Order Segments ---
-        segments_ordered: List[SegmentTuple] = []
+        segments_ordered = []
         for segment_list in self.markers.values():
             segments_ordered.extend(segment_list)
 
