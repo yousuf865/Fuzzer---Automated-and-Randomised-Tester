@@ -1,38 +1,7 @@
 import random
 import copy
+
 from mutations import Mutations # i dont know how to import
-
-jpg_markers_bytes = {
-    # Start/End Markers
-    "Start of Image (SOI)": b'\xff\xd8',
-    "End of Image (EOI)": b'\xff\xd9',
-    "Start of Scan (SOS)": b'\xff\xda',
-
-    # Frame/Define Markers
-    "Start of Frame (SOF0 - Baseline DCT)": b'\xff\xc0',
-    "Start of Frame (SOF1 - Extended sequential DCT)": b'\xff\xc1',
-    "Start of Frame (SOF2 - Progressive DCT)": b'\xff\xc2',
-    "Start of Frame (SOF3 - Lossless sequential)": b'\xff\xc3',
-    "Define Huffman Table (DHT)": b'\xff\xc4',
-    "Define Arithmetic Coding Conditioning (DAC)": b'\xff\xcc',
-    "Define Quantization Table (DQT)": b'\xff\xdb',
-
-    # Restart Markers (RST0-RST7)
-    "Restart Marker 0 (RST0)": b'\xff\xd0',
-    # ... RST1 through RST6 markers would be FFD1 through FFD6 ...
-    "Restart Marker 7 (RST7)": b'\xff\xd7',
-
-    # Application Markers
-    "Application Specific (APP0 - JFIF/JPEGE)": b'\xff\xe0',
-    "Application Specific (APP1 - Exif/XMP)": b'\xff\xe1',
-    "Application Specific (APP2 - ICC/FlashPix)": b'\xff\xe2'
-    "Application Specific (APP13 - Photoshop IRB/8BIM)": b'\xff\xed',
-
-    # Other Markers
-    "Comment (COM)": b'\xff\xfe',
-    "Define Restart Interval (DRI)": b'\xff\xdd',
-}
-
 
 class JPEG_mutator:
     #table_data {
@@ -54,11 +23,11 @@ class JPEG_mutator:
         # mutate table
         for table_data in tables_to_mutate:
             table = table_data['table']
-            strategies = [Mutations().bit_flip()]
+            strategies = [Mutations().bit_flip]
             strat = random.choice(strategies)
 
             # TODO: what about BYTE flip?
-            table = Mutations().bit_flip(table, random.randint(0, len(table)))
+            table = Mutations().bit_flip(bytearray(table), random.randint(0, len(table)))
             table_data['table_id'] = random.randint(0,32)
 
             table_bit_idx = 0
@@ -148,6 +117,7 @@ class JPEG_mutator:
 
             curr += 2
         return bytes(data)
+    
 
     def sos_mutate(self, segment, component_mutation=None, keep_byte_stuffing=None): 
         def component_deletion(num,components):
@@ -178,21 +148,32 @@ class JPEG_mutator:
 
         mutated = data[:r] + b'\xff' + data[r + 1:]
 
-        if keep_byte_stuffing:
-            mutated = self.byte_stuffing(mutated, True)
-
         return mutated
+    
+    def sos_imagedata_mutation(self, image_data: bytes, cancel_byte_stuffing=None):
+        data = bytearray(image_data)
+        
+        strat = random.choice([Mutations().bit_flip, Mutations().byte_flip])
+
+        data = strat(data, random.randint(0, len(data) // 2))
+        
+        if cancel_byte_stuffing:
+            return bytes(data)
+
+        data = self.byte_stuffing(data, True)
+
+        return bytes(data)
 
     def single_segment_agnostic_mutation(self, segment: tuple):
         marker, length, data, order = segment   # Order kinda useless here
         
-        # TODO: what about BYTE flip?
-        strat = random.choice([Mutations().bit_flip()])
-        
-        parts = [marker, length, data]
-        mutate_idx = random.randint(0, 3)
+        if marker in (0xffd8, 0xffd9, 0xffe0, 0xffda):
+            return None
 
-        mutated_part = strat(parts[mutate_idx], random.randint(0, len(parts[mutate_idx]))
+        # TODO: what about BYTE flip?
+        strat = random.choice([Mutations().bit_flip])
+    
+        mutated_part = strat(bytearray(data), random.randint(0, len(parts[mutate_idx])))
         
         parts[mutate_idx] = mutated_part
 

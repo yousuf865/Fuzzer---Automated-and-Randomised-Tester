@@ -6,7 +6,7 @@ class Mutations:
     def __init__(self):
         return
 
-    def bit_flip(self, data_bytes, num_flips):
+    def bit_flip(self, data_bytes: bytearray, num_flips):
         for _ in range(num_flips):
             # Find a random byte in byte array
             byte_index = random.randint(0, len(data_bytes) - 1)
