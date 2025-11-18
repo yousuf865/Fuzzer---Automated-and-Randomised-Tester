@@ -131,7 +131,25 @@ class JPEG_mutator:
         
         return data_precision, image_height, image_width, num_components, components
 
-    def sos_mutate(self, segment, component_mutation=None): 
+    def byte_stuffing(self, image_data, check=None):
+        data = bytearray(image_data)
+
+        curr = 0
+        while True:
+            curr = data.find(b'\xff', curr)
+            if curr == -1:
+                break
+            
+            if check is None:
+                data.insert(curr + 1, 0x00)
+            else:
+                if data[curr + 1] != 0x00:
+                    data.insert(curr + 1, 0x00)
+
+            curr += 2
+        return bytes(data)
+
+    def sos_mutate(self, segment, component_mutation=None, keep_byte_stuffing=None): 
         def component_deletion(num,components):
             for i in range(num):
                 if not components:
@@ -159,6 +177,9 @@ class JPEG_mutator:
         r = random.randint(0, len(data))
 
         mutated = data[:r] + b'\xff' + data[r + 1:]
+
+        if keep_byte_stuffing:
+            mutated = self.byte_stuffing(mutated, True)
 
         return mutated
 

@@ -109,14 +109,14 @@ class JPEGparser:
             curr += 3
         return data_precision, image_height, image_width, num_components, components
 
-    def app0_reconsutrction(self, marker_val, length, data):
+    def app0_reconstruction(self, marker_val, length, data):
         raw_segment = struct.pack('>HH', marker_val, length)
         raw_segment += struct.pack(
             '> 5s B B B H H B B',
-            data.magic,                        # 5s: b'JFIF\x00' (Assuming it's b'JFIF\x00')
+            data.magic.encode(),                        # 5s: b'JFIF\x00' (Assuming it's b'JFIF\x00')
             data.version_major,                # B: 1 byte
             data.version_minor,                # B: 1 byte
-            data.density_unit,                 # B: 1 byte
+            data.density_units,                 # B: 1 byte
             data.density_x,                    # H: 2 bytes
             data.density_y,                    # H: 2 bytes
             data.thumbnail_x,                  # B: 1 byte
@@ -128,8 +128,12 @@ class JPEGparser:
         return raw_segment
 
     def SOS_header_reconstruction(self, marker_val, length, data):
-        raw_segment = struct.pack('>HH', marker_val, length)
-        raw_segment += struct.pack('>B', data.num_components)
+        raw_segment = struct.pack(
+            '>HHB', 
+            marker_val, 
+            length,
+            data.num_components
+        )
         
         # FOR SOS PROBABLY JUST KEEP THE NUM_COMPONENTS AND COMPONENTS SYNCED UP
         for i in range(data.num_components):
@@ -137,8 +141,8 @@ class JPEGparser:
         
         raw_segment += struct.pack(
             '>BBB', 
-            data.start_spectral_selection
-            data.end_spectral
+            data.start_spectral_selection,
+            data.end_spectral,
             data.appr_bit_pos
         )
 
@@ -189,18 +193,16 @@ class JPEGparser:
                 # Length value = (Payload size + 2 bytes for the length field itself)
                 length_value = length
                 
-                print('data: ')
-                print(processed_data)
-                raw_segment = struct.pack('>H', marker_val)
-                raw_segment += struct.pack('>H', length_value) # Write 2-byte Big-Endian Length
+                raw_segment = struct.pack('>HH', marker_val, length_value) # Write 2-byte Big-Endian Length
                 raw_segment += processed_data                  # Write Data Payload
             
             elif marker_val == 0xffe0:
-                raw_segment = app0_reconstruction(marker_val, length, data_payload)
+                raw_segment = self.app0_reconstruction(marker_val, length, data_payload)
 
             elif marker_val == 0xFFDA:
-                raw_segment = SOS_header_reconstruction(marker_val, length, data_payload)
-                raw_segment += byte_stuffing(segment.image_data)
+                raw_segment = self.SOS_header_reconstruction(marker_val, length, data_payload)
+                #raw_segment += self.byte_stuffing(segment.image_data)
+                raw_segment += segment.image_data
 
             reconstructed_segments.append(raw_segment)
         
