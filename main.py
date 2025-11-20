@@ -20,7 +20,14 @@ def main():
         percentage = (progress / total) * 100
         print(" " * 160, end="\r", flush=True)  # Clear the line
         print(f"Running fuzzer against {binary_name}...                              ({percentage:.2f}%)[{binary}]", end="\r", flush=True)
-        found_error = fuzzer.auto_test(binary_name, 1000)
+        # start_time = time.time()
+        # while True:
+        #     elapsed = int(time.time() - start_time)
+        #     print(f"Running fuzzer against {binary_name}... ({percentage:.2f}%)[{binary}] | Elapsed: {elapsed}s", end="\r", flush=True)
+        #     # Break the loop if auto_test is done (simulate with a flag)
+        #     # You may need to modify auto_test to support this, but for now, just run once per binary
+        #     break
+        found_error = fuzzer.auto_test(binary_name, 5000)
         error_dict[binary_name] = found_error
         # print(f"Finished running fuzzer against {binary_name}!                      ", end="\r", flush=True)
 
