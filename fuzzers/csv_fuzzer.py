@@ -3,8 +3,8 @@ import random
 import string
 class CSVFuzzer:
     def __init__(self):
-        self.max_val = 257
-        self.min_val = 0
+        self.max_val = 2147483648
+        self.min_val = -2147483648
 
     def get_max_val(self):
         return self.max_val
@@ -75,6 +75,7 @@ class CSVFuzzer:
         # what breaks it:
         # ,\n
         # b'',b''
+    
     def pattern(self, 
         header: list, 
         num_rows: int, 
@@ -104,6 +105,10 @@ class CSVFuzzer:
                 row = [''.join(random.choices(string.ascii_lowercase, k=cell_val_len)) for _ in range(0, num_cols)]
                 delim_list = [' ', '.', ',', '\t', '\n', '|', '/', '\\', ':', ';']
                 csv_delim = f"{random.choice(delim_list)}"
+            elif value_type == "format":
+                # Fill each cell with a random format specifier
+                format_specifiers = ['%s', '%d', '%f', '%x', '%o', '%e', '%g', '{:s}', '{:d}', '{:f}', '{:x}', '{:o}', '{:e}', '{:g}']
+                row = [",".join(random.sample(format_specifiers, k=random.randint(1, len(format_specifiers)))) for _ in range(0, num_cols)]
             else:
                 row = [''.join(random.choices(string.ascii_lowercase, k=cell_val_len)) for _ in range(0, num_cols)]
             if _ == 0:
@@ -120,9 +125,11 @@ class CSVFuzzer:
         mutate_value_type: bool, 
         mutate_cell_val_len: bool, 
         normal_values: dict,
-        value_type: str = random.choice(["str", "int", "float", "hex", "bin", "mix", "neg", "delim"]),
+        value_type: str = "default",
     ) -> list:
         # print("All inputs:\n",mutate_header, mutate_num_rows, mutate_num_cols, mutate_value_type, mutate_cell_val_len, normal_values, value_type)
+        if value_type == "default":
+            value_type = random.choice(["str", "int", "float", "hex", "bin", "mix", "neg", "delim", "format"])
         if mutate_header:
             header = [
                 ''.join(random.choices(string.ascii_lowercase, k=random.randint(0, self.max_val)))
