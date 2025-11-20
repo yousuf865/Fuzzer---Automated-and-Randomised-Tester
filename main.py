@@ -19,7 +19,7 @@ def main():
         total = len(binaries_list)
         percentage = (progress / total) * 100
         print(f"Running fuzzer against {binary_name}...                                     ({percentage:.2f}%)[{binary}]", end="\r", flush=True)
-        found_error = fuzzer.auto_test(binary_name, 100)
+        found_error = fuzzer.auto_test(binary_name, 1000)
         error_dict[binary_name] = found_error
         # print(f"Finished running fuzzer against {binary_name}!                      ", end="\r", flush=True)
 
