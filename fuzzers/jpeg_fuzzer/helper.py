@@ -3,6 +3,11 @@ import copy
 import struct
 import string
 
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 from mutations import Mutations # i dont know how to import
 
 class JPEG_mutator:
@@ -12,7 +17,8 @@ class JPEG_mutator:
     #    'table': code_table
     #}
     # original_huffman = array of table_data
-    def huffman_mutate(self, original_dht, mutate_table_id=None, mutate_code_amounts=None):
+    @staticmethod
+    def huffman_mutate(original_dht, mutate_table_id=None, mutate_code_amounts=None):
         dht = copy.deepcopy(original_dht)
 
         # --------------------------------- Mutate table ------------------------------
@@ -20,7 +26,7 @@ class JPEG_mutator:
         tables_to_mutate = []
         r = random.randint(0, len(dht))
         for i in range(r):
-            tables_to_mutate.append(dht[random.randint(0, len(dht))])
+            tables_to_mutate.append(dht[random.randint(0, len(dht) - 1)])
 
         # mutate table
         for table_data in tables_to_mutate:
@@ -64,7 +70,8 @@ class JPEG_mutator:
 
 
     # random position of a marker (possibly making it double)
-    def insert_random_markers(self, jpg_bytes, marker_dup_count=None):
+    @staticmethod
+    def insert_random_markers(jpg_bytes, marker_dup_count=None):
         data = bytearray(jpg_bytes)
 
         mutate_count = 1 if marker_mutate_count is None else marker_mutate_count
@@ -80,7 +87,8 @@ class JPEG_mutator:
 
         return bytes(data)
 
-    def marker_mutate(self, segments, num_to_mutate=None):
+    @staticmethod
+    def marker_mutate(segments, num_to_mutate=None):
         count = num_to_mutate if num_to_mutate else 1
         
         for i in range(count):
@@ -89,7 +97,8 @@ class JPEG_mutator:
             data = segments[segment_name]
             r = random.randint(0, len(data))
 
-    def sof_mutate(self, segment):
+    @staticmethod
+    def sof_mutate(segment):
         def mutate_data(data):
             if random.choice([True,False]):
                 return data
@@ -111,7 +120,8 @@ class JPEG_mutator:
         
         return data_precision, image_height, image_width, num_components, components
 
-    def byte_stuffing(self, image_data, check=None):
+    @staticmethod
+    def byte_stuffing(image_data, check=None):
         data = bytearray(image_data)
 
         curr = 0
@@ -129,8 +139,8 @@ class JPEG_mutator:
             curr += 2
         return bytes(data)
     
-
-    def sos_mutate(self, segment, component_mutation=None, keep_byte_stuffing=None): 
+    @staticmethod
+    def sos_mutate(segment, component_mutation=None, keep_byte_stuffing=None): 
         def component_deletion(num,components):
             for i in range(num):
                 if not components:
@@ -160,7 +170,8 @@ class JPEG_mutator:
             
         return (marker, length, data, order, s)
     
-    def sos_imagedata_mutation(self, image_data: bytes, cancel_byte_stuffing=None):
+    @staticmethod
+    def sos_imagedata_mutation(image_data: bytes, cancel_byte_stuffing=None):
         data = bytearray(image_data)
         
         strat = random.choice([Mutations().bit_flip, Mutations().byte_flip])
@@ -174,7 +185,8 @@ class JPEG_mutator:
 
         return bytes(data)
     
-    def app0_mutation(self, segment):
+    @staticmethod
+    def app0_mutation(segment):
         def _ascii_mutate(data: bytearray, num):
             mutation_pool = string.ascii_letters + string.digits
             random_char = random.choice(mutation_pool)
@@ -229,7 +241,7 @@ class JPEG_mutator:
         for field_name, bit_size in fields:
 
             # Ensure the object has the field
-            if not hasattr(data_object, field_name):
+            if not hasattr(data, field_name):
                 continue
 
             # --- INDEPENDENT PROBABILITY CHECK FOR EACH FIELD ---
@@ -240,7 +252,7 @@ class JPEG_mutator:
                 # Randomly choose between Bit Flip and Byte Flip
                 if random.choice([False, True]):
                     # Bit Flip
-                    mutated_value = _bitflip_val(current_value, bit)_size)
+                    mutated_value = _bitflip_val(current_value, bit_size)
                 else:
                     # Byte Flip (random value assignment)
                     mutated_value = _random_val(bit_size)
@@ -250,7 +262,8 @@ class JPEG_mutator:
 
         return data_object
     
-    def single_segment_agnostic_mutation(self, segment: tuple):
+    @staticmethod
+    def single_segment_agnostic_mutation(segment: tuple):
         marker, length, data, order = segment   # Order kinda useless here
         
         if marker in (0xffd8, 0xffd9, 0xffe0, 0xffda):

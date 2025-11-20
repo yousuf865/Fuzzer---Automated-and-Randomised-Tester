@@ -56,7 +56,7 @@ class JPEGparser:
                 segment_length = getattr(segment, 'length', None)
                 full_marker = (0xff << 8) | segment.marker.value
                 self.markers.setdefault(segment_name,[]).append((full_marker, segment_length, segment_data, order, segment))
-
+            
             return self.markers, data
         except Exception as e:
             print(f"An error occured during Parsing: {e}")

@@ -8,6 +8,7 @@ class JPEGFuzzer:
         self.min_val = 0
         self.segments = {}
         self.raw_data = b''
+        self.parser = JPEGparser()
 
     def get_max_val(self):
         return self.max_val
@@ -23,7 +24,7 @@ class JPEGFuzzer:
 
     # still undefined
     def take_input(self, file_path: str) -> bytes:
-        self.segments, self.raw_data = JPEGparser.parse(file_path)
+        self.segments, self.raw_data = self.parser.parse(file_path)
 
     def pattern(self):
         return
@@ -36,30 +37,35 @@ class JPEGFuzzer:
         if only_double_marker:
             return JPEG_mutator.insert_random_markers(self.raw_bytes)
 
-        app0 = self.markers['app0']
-        dht = self.markers['dht']
-        sos = self.markers['sos']
-        sof = self.markers['sof']
+        app0 = self.segments['app0'][0]
+        dht = self.segments['dht'][0]
+        sos = self.segments['sos'][0]
+        
+        sof_keys = ['sof0', 'sof1', 'sof2', 'sof3']
+        for key in sof_keys:
+            if key in self.segments:
+                sof = self.segments[key][0]
+        
         image_data = sos[4].image_data
 
         #for marker in jpg_marker_bytes.values():
         #    mutate_bytes = double_markers(self.jpg_bytes, len(self.jpg_bytes), marker)
             
         if random.choice([False, True]):
-            self.markers['app0'] = JPEG_mutator.app0_mutation(app0)
+            self.segments['app0'] = JPEG_mutator.app0_mutation(app0)
 
         if random.choice([False, True]):
-            self.markers['dht'] = JPEG_mutator.huffman_mutate(dht) # the i havent put together the parse here, its in jpeg_parser.py tho
+            self.segments['dht'] = JPEG_mutator.huffman_mutate(dht) # the i havent put together the parse here, its in jpeg_parser.py tho
 
         if random.choice([False, True]):
-            self.markers['sos'] = JPEG_mutator.sos_mutate(sos, random.choice([False, True])) # again, still in jpeg_parser.py
+            self.segments['sos'] = JPEG_mutator.sos_mutate(sos, random.choice([False, True])) # again, still in jpeg_parser.py
         
         if random.choice([False, True]):
-            self.markers['sof'] = JPEG_mutator.sof_mutate(sof) # same
+            self.segments['sof'] = JPEG_mutator.sof_mutate(sof) # same
 
         if random.choice([False, True]):
-            self.markers['sos'][4].image_data = JPEG_mutator.sos_imagedata_mutation(image_data)
+            self.segments['sos'][4].image_data = JPEG_mutator.sos_imagedata_mutation(image_data)
  
-        return JPEGparser.jpeg_reconstructor(self.markers)
+        return self.parser.jpeg_constructor(self.markers)
         
             
