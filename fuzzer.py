@@ -17,6 +17,7 @@ from fuzzers.plaintext_fuzzer import PlainTextFuzzer
 from fuzzers.xml_fuzzer import XMLFuzzer
 from mutations import Mutations
 import itertools
+from difflib import SequenceMatcher
 csv_fuzzer = CSVFuzzer()
 json_fuzzer = JSONFuzzer()
 xml_fuzzer = XMLFuzzer()
@@ -72,6 +73,39 @@ class Fuzzer:
         ]
         return len(positional_args)
 
+    def check_if_new_crash(self, crash_map: dict, return_code: int, output: str, error: str, elapsed_time: float) -> bool:
+        if return_code < 0:
+            return True
+        if return_code >= 0:
+            return False
+        
+        if return_code not in crash_map:
+            return True
+        
+        is_new_crash = True
+        prev_crashes = crash_map.get(return_code, [])
+        for crash in prev_crashes:
+            for crash in prev_crashes:
+                # compare similarity of stored error/output with current ones
+                err_ref = crash[0] if len(crash) > 0 else ""
+                out_ref = crash[1] if len(crash) > 1 else ""
+                err_sim = SequenceMatcher(None, err_ref, error).ratio()
+                out_sim = SequenceMatcher(None, out_ref, output).ratio()
+                combined_sim = (err_sim + out_sim) / 2.0
+
+                # threshold ~35% similarity (adjust as needed between 0.30-0.40)
+                if combined_sim >= 0.35:
+                    prev_elapsed = crash[2] if len(crash) > 2 else 0.0
+                    if prev_elapsed == 0.0:
+                        diff_ratio = 1.0 if elapsed_time != 0.0 else 0.0
+                    else:
+                        diff_ratio = abs(elapsed_time - prev_elapsed) / prev_elapsed
+
+                    if diff_ratio < 0.75:
+                        is_new_crash = False
+                        break
+        return is_new_crash
+    
     def sample_name(self, bin_name: str, file_type, file_type_dict: dict, num_tests: int = 100):
         crash_map = {}
         max_val_bin = {
@@ -107,26 +141,12 @@ class Fuzzer:
                     mutated_payload = mutations.run_mutation_strategies(f"example_inputs/{bin_name}.txt", input_type, strat)
                     return_code, output, error, elapsed_time = self.run_target(f"binaries/{bin_name}", mutated_payload)
                     
-                    is_new_crash = True
-                    if "Error:" in output or error != "" or return_code != 0:
-                        prev_crashes = crash_map.get(return_code, [])
-                        for crash in prev_crashes:
-                            if crash[0] == error and crash[1] == output:
-                                # take this payload as new crash
-                                prev_elapsed = crash[2] if len(crash) > 3 else 0.0
-                                if prev_elapsed == 0.0:
-                                    diff_ratio = 1.0 if elapsed_time != 0.0 else 0.0
-                                else:
-                                    diff_ratio = abs(elapsed_time - prev_elapsed) / prev_elapsed
-
-                                if diff_ratio < 0.6:
-                                    is_new_crash = False
-                                    break
-                        # We do this to get the specifics of the error output via GDB
-                        if is_new_crash:
-                            crash_map.setdefault(return_code, []).append((error, output, elapsed_time, strat))
+                    is_new_crash = self.check_if_new_crash(crash_map, return_code, output, error, elapsed_time)
+                    if is_new_crash:
+                        crash_map.setdefault(return_code, []).append((error, output, elapsed_time, strat))
                         with open(f"fuzzer_output/bad_{bin_name}.txt", "a+") as file:
                             file.write(f"{mutated_payload}")
+                        return crash_map
 
 
             # Apply Mutation Parameters derived from example input to generate new random payloads
@@ -167,28 +187,12 @@ class Fuzzer:
                             
                 avg_elapsed_time = (avg_elapsed_time * (i - 1) + elapsed_time) / i
 
-                is_new_crash = True
-                if "Error:" in output or error != "" or return_code != 0:
-                    # We do this to get the specifics of the error output via GDB
-                    
-                    prev_crashes = crash_map.get(return_code, [])
-                    for crash in prev_crashes:
-                        if crash[0] == error and crash[1] == output:
-                            # take this payload as new crash
-                            prev_elapsed = crash[2] if len(crash) > 3 else 0.0
-                            if prev_elapsed == 0.0:
-                                diff_ratio = 1.0 if elapsed_time != 0.0 else 0.0
-                            else:
-                                diff_ratio = abs(elapsed_time - prev_elapsed) / prev_elapsed
-
-                            if diff_ratio < 0.6:
-                                is_new_crash = False
-                                break
-                        # We do this to get the specifics of the error output via GDB
-                    if is_new_crash:
-                        crash_map.setdefault(return_code, []).append((error, output, elapsed_time, 'param_mutation'))
+                is_new_crash = self.check_if_new_crash(crash_map, return_code, output, error, elapsed_time)
+                if is_new_crash:
+                    crash_map.setdefault(return_code, []).append((error, output, elapsed_time, 'param_mutation'))
                     with open(f"fuzzer_output/bad_{bin_name}.txt", "a+") as file:
                         file.write(f"{payload}")
+                    return crash_map
         return crash_map
 
 
@@ -200,7 +204,7 @@ class Fuzzer:
           file_type = "XML"
         if 'csv2' in bin_name:
             file_type = "CSV"
-        if 'xml'  in bin_name:
+        if 'xml' in bin_name:
             return {}
 
         file_type_dict = {
@@ -211,67 +215,3 @@ class Fuzzer:
             "data": plaintext_fuzzer   
         }
         return self.sample_name(bin_name, file_type, file_type_dict, num_tests)
-
-    def manual_test(self,
-        bin_name: str,
-        bin_params: dict
-        ) -> None:
-        '''
-        USAGE: 
-            bin_name: str - the name of the binary to test
-            bin_params: dict - a dictionary containing the parameters for the mutation
-        GENERAL DESCRIPTION:
-            This function generates a payload based on the parameters provided in bin_params 
-            and then runs the target binary with the generated payload. 
-            The output is then written to a file.
-        '''
-        payload = ""
-        if "csv" in bin_name:
-            payload = csv_fuzzer.pattern(
-                bin_params["header"],
-                bin_params["num_rows"],
-                bin_params["num_cols"],
-                bin_params["value_type"],
-                bin_params["cell_val_len"]
-            )
-            mutation_type =(
-                bin_params["header"],
-                bin_params["num_rows"],
-                bin_params["num_cols"],
-                bin_params["value_type"],
-                bin_params["cell_val_len"]
-            )
-        
-        if payload != "":
-            output, error = self.run_target(f"binaries/{bin_name}", payload)
-            with open(f"fuzzer_output/manual_input_{bin_name}.txt", "w") as file:
-                file.write(f"Mutation type: {mutation_type}\n")
-                # file.write(f"Payload: {payload}\n")
-                file.write(f"Output: {output}\n")
-            print(f"Manual test written to manual_input_{bin_name}.txt")
-            with open(f"fuzzer_output/manual_input_payload_{bin_name}.txt", "w") as file:
-                file.write(payload)
-        else:
-            print("Error: No payload generated")
-
-    def standard_test(self, bin_name: str, num_tests: int = 100) -> None:
-        # Use this to test automatic and manual inputs
-        self.auto_test(bin_name, num_tests)
-        # Example usage of manual_test:
-        test_dict = {
-            "header": ['header', 'must', 'stay', 'intact'],
-            "num_rows": 15,
-            "num_cols": 4,
-            "value_type": 'hex',
-            "cell_val_len": 296
-        }
-        self.manual_test(bin_name, test_dict)
-
-    def length_rnd(self):
-        return
-    
-    def val_rnd(self):
-        return
-    
-    def pattern_rnd(self, pattern: str):
-        return
