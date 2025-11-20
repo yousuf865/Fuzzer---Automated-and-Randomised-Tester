@@ -17,7 +17,7 @@ from fuzzers.plaintext_fuzzer import PlainTextFuzzer
 from fuzzers.xml_fuzzer import XMLFuzzer
 from mutations import Mutations
 import itertools
-from difflib import SequenceMatcher
+
 csv_fuzzer = CSVFuzzer()
 json_fuzzer = JSONFuzzer()
 xml_fuzzer = XMLFuzzer()
@@ -59,7 +59,7 @@ class Fuzzer:
             return_code = process.returncode
             return return_code, output, error, elapsed_time
         except Exception as e:
-            return -1, "", f"Error: {e}", 0.0
+            return 0, "", f"Error: {e}", 0.0
 
     def count_positional_args(self, func):
         # Get the signature of the function
@@ -73,38 +73,6 @@ class Fuzzer:
         ]
         return len(positional_args)
 
-    def check_if_new_crash(self, crash_map: dict, return_code: int, output: str, error: str, elapsed_time: float) -> bool:
-        if return_code < 0:
-            return True
-        if return_code >= 0:
-            return False
-        
-        if return_code not in crash_map:
-            return True
-        
-        is_new_crash = True
-        prev_crashes = crash_map.get(return_code, [])
-        for crash in prev_crashes:
-            for crash in prev_crashes:
-                # compare similarity of stored error/output with current ones
-                err_ref = crash[0] if len(crash) > 0 else ""
-                out_ref = crash[1] if len(crash) > 1 else ""
-                err_sim = SequenceMatcher(None, err_ref, error).ratio()
-                out_sim = SequenceMatcher(None, out_ref, output).ratio()
-                combined_sim = (err_sim + out_sim) / 2.0
-
-                # threshold ~35% similarity (adjust as needed between 0.30-0.40)
-                if combined_sim >= 0.35:
-                    prev_elapsed = crash[2] if len(crash) > 2 else 0.0
-                    if prev_elapsed == 0.0:
-                        diff_ratio = 1.0 if elapsed_time != 0.0 else 0.0
-                    else:
-                        diff_ratio = abs(elapsed_time - prev_elapsed) / prev_elapsed
-
-                    if diff_ratio < 0.75:
-                        is_new_crash = False
-                        break
-        return is_new_crash
     
     def sample_name(self, bin_name: str, file_type, file_type_dict: dict, num_tests: int = 100):
         crash_map = {}
@@ -141,12 +109,11 @@ class Fuzzer:
                     mutated_payload = mutations.run_mutation_strategies(f"example_inputs/{bin_name}.txt", input_type, strat)
                     return_code, output, error, elapsed_time = self.run_target(f"binaries/{bin_name}", mutated_payload)
                     
-                    is_new_crash = self.check_if_new_crash(crash_map, return_code, output, error, elapsed_time)
-                    if is_new_crash:
-                        crash_map.setdefault(return_code, []).append((error, output, elapsed_time, strat))
+                    
+                    if return_code < 0:
                         with open(f"fuzzer_output/bad_{bin_name}.txt", "a+") as file:
                             file.write(f"{mutated_payload}")
-                        return crash_map
+                        return {return_code:[( error, output, elapsed_time, strat)]}
 
 
             # Apply Mutation Parameters derived from example input to generate new random payloads
@@ -187,12 +154,10 @@ class Fuzzer:
                             
                 avg_elapsed_time = (avg_elapsed_time * (i - 1) + elapsed_time) / i
 
-                is_new_crash = self.check_if_new_crash(crash_map, return_code, output, error, elapsed_time)
-                if is_new_crash:
-                    crash_map.setdefault(return_code, []).append((error, output, elapsed_time, 'param_mutation'))
+                if return_code < 0:
                     with open(f"fuzzer_output/bad_{bin_name}.txt", "a+") as file:
                         file.write(f"{payload}")
-                    return crash_map
+                    return {return_code:[ (error, output, elapsed_time, 'param_mutation')]}
         return crash_map
 
 
