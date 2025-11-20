@@ -32,62 +32,58 @@ class JPEG_mutator:
     # original_huffman = array of table_data
     @staticmethod
     def huffman_mutate(segment, mutate_table_id=None, mutate_code_amounts=None):
-        marker, length, data, order = segment
+        try:
+            marker, length, dht, order = segment
+        except ValueError:
+            marker, length, dht, order, _ = segment
 
-        dht = data
-        
+        if not dht:
+            return segment
 
-        # --------------------------------- Mutate table ------------------------------
-        # randomise tables to mutate
-        tables_to_mutate = []
-        r = random.randint(0, len(dht))
-        for i in range(r):
-            tables_to_mutate.append(dht[random.randint(0, len(dht) - 1)])
+        tables_to_mutate_count = random.randint(0, len(dht))
+        indices_to_mutate = random.sample(range(len(dht)), tables_to_mutate_count)
 
-        # mutate table
-        for table_data in tables_to_mutate:
-            table = table_data['table']
-            strategies = [Mutations().bit_flip]
-            strat = random.choice(strategies)
+        for idx in indices_to_mutate:
+            table_data = dht[idx]
+            
+            code_values_ba = bytearray(table_data['table']) 
+            code_lengths_list = list(table_data['code_lengths'])
+            
+            code_values_ba = Mutations.bit_flip(
+                code_values_ba, 
+                random.randint(0, len(code_values_ba) - 1)
+            )
+            
+            table_data['table_id'] = struct.pack('>B', random.randint(0, 0x1F)) 
 
-            # TODO: what about BYTE flip?
-            table = Mutations().bit_flip(bytearray(table), random.randint(0, len(table)))
-            table_data['table_id'] = random.randint(0,32)
-
-            table_bit_idx = 0
-            for i in range(0, 16):
-                random_boolean = random.choice([True, False])
-                 
-                table_bit_idx += table_data['code_lengths'][i] 
+            total_code_count_change = 0
+            
+            for i in range(16):
+                current_count = code_lengths_list[i]
                 
-                # the amount of code of length i to be added, right now only up to 5 additions
-                add_code_num = random.randint(0, 5) if random_boolean else 0
-                
-               
                 if random.choice([True, False]):
-                    # if here then code num not done anything to
                     continue
-                # randomise minus or not (addition can be minus as well right :P)
-                # forgive bad variable name
-                add_code_num *= -1 if random.choice([True, False]) else 1
                 
-                if add_code_num >= 0:
-                    addition_bits = [random.choice([0, 1]) for _ in range(add_code_num)]
-                    
-                    table = table[:table_bit_idx] + addition_bits + table[table_bit_idx:]
-                    
-                    # adjust index after addition to still be on current index
-                    table_bit_idx += add_code_num
-                    table_data['code_lengths'][i] += add_code_num
+                max_subtraction = min(current_count, 5)
+                change_amount = random.randint(-max_subtraction, 5) 
+                
+                if change_amount == 0:
+                    continue
+                
+                code_lengths_list[i] += change_amount
+                total_code_count_change += change_amount
+            
+            if total_code_count_change != 0:
+                if total_code_count_change > 0:
+                    new_bytes = bytes([random.randint(0, 0xFF) for _ in range(total_code_count_change)])
+                    code_values_ba.extend(new_bytes)
                 else:
-                    table_bit_idx -= add_code_num
-
-                    table = table[:table_bit_idx] + table[table_bit_idx:]
-                    table_data['code_lengths'][i] -= add_code_num
+                    code_values_ba = code_values_ba[:len(code_values_ba) + total_code_count_change]
+            
+            table_data['code_lengths'] = bytes(code_lengths_list) 
+            table_data['table'] = bytes(code_values_ba) 
 
         return marker, length, dht, order
-
-
 
     # random position of a marker (possibly making it double)
     @staticmethod

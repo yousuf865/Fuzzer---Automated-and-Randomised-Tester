@@ -89,7 +89,7 @@ class JPEGparser:
             curr += table_length + 17
         return table_data
 
-    def dht_table_reconstructor(self, marker, length, data):
+    def dht_reconstructor(self, marker, length, data):
         raw_segment = struct.pack(
             '>HH',
             marker,
