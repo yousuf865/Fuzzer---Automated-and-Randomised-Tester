@@ -11,6 +11,19 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from mutations import Mutations # i dont know how to import
 
 class JPEG_mutator:
+
+    @staticmethod
+    def dht_mutate(dht, mutate_table_id=None, mutate_code_amounts=None):
+        indeces = [_ for _ in range(0, len(dht) - 1)]
+
+        for i in range(random.randint(0, len(dht))):
+            idx = random.choice(indeces)
+            indeces.remove(idx)
+            
+            dht[idx] = JPEG_mutator.huffman_mutate(dht[idx])
+
+        return dht
+
     #table_data {
     #    'table_type': table_id, 
     #    'code_lengths': code_lengths,
@@ -18,8 +31,11 @@ class JPEG_mutator:
     #}
     # original_huffman = array of table_data
     @staticmethod
-    def huffman_mutate(original_dht, mutate_table_id=None, mutate_code_amounts=None):
-        dht = copy.deepcopy(original_dht)
+    def huffman_mutate(segment, mutate_table_id=None, mutate_code_amounts=None):
+        marker, length, data, order = segment
+
+        dht = data
+        
 
         # --------------------------------- Mutate table ------------------------------
         # randomise tables to mutate
@@ -47,6 +63,10 @@ class JPEG_mutator:
                 # the amount of code of length i to be added, right now only up to 5 additions
                 add_code_num = random.randint(0, 5) if random_boolean else 0
                 
+               
+                if random.choice([True, False]):
+                    # if here then code num not done anything to
+                    continue
                 # randomise minus or not (addition can be minus as well right :P)
                 # forgive bad variable name
                 add_code_num *= -1 if random.choice([True, False]) else 1
@@ -65,7 +85,7 @@ class JPEG_mutator:
                     table = table[:table_bit_idx] + table[table_bit_idx:]
                     table_data['code_lengths'][i] -= add_code_num
 
-        return dht
+        return marker, length, dht, order
 
 
 
@@ -110,7 +130,7 @@ class JPEG_mutator:
             else:
                 return data + r
 
-        marker, length, data, order, s = segment
+        marker, length, data, order = segment
         
         data.bits_per_sample = mutate_data(data.bits_per_sample)
         data.image_height = mutate_data(data.image_height)
@@ -118,7 +138,7 @@ class JPEG_mutator:
 
         #TODO component mutate
         
-        return (marker, length, data, order, s)
+        return (marker, length, data, order)
 
     @staticmethod
     def byte_stuffing(image_data, check=None):
@@ -181,7 +201,7 @@ class JPEG_mutator:
         if cancel_byte_stuffing:
             return bytes(data)
 
-        data = self.byte_stuffing(data, True)
+        data = JPEG_mutator.byte_stuffing(data, True)
 
         return bytes(data)
     
@@ -195,24 +215,25 @@ class JPEG_mutator:
             data[index] = random_byte
             return data
 
-        def _random_val(self, bit_size: int) -> int:
+        def _random_val(bit_size: int) -> int:
             """Returns a completely random integer value based on bit size (8-bit or 16-bit)."""
             if bit_size == 16:
                 return random.randrange(0, 65536)
             else: # 8-bit
                 return random.randrange(0, 256)
 
-        def _bitflip_val(self, value: int, num_bits: int) -> int:
+        def _bitflip_val(value: int, num_bits: int) -> int:
             """Flips a single random bit in an integer value."""
             bit_index = random.randrange(0, num_bits)
             return value ^ (1 << bit_index)
 
-        marker, length, data, order, s = segment
+        marker, length, data, order = segment
 
         if random.choice([False, True]):
             char = random.choice(string.ascii_letters)
             magic = bytearray(data.magic.encode())
 
+            '''
             mutators = [
                 Mutations().bit_flip,
                 Mutations().byte_flip,
@@ -220,7 +241,9 @@ class JPEG_mutator:
             ]
 
             chosen_mutator = random.choice(mutators)
-            magic = chosen_mutator(magic, 1)
+            CANCELED, CUZ MAGIC HAS TO BE STRING SO ONLY ASCII MUTATE
+            '''
+            magic = _ascii_mutate(magic, 1)
 
             data.magic = bytes(magic).decode()
         
@@ -247,7 +270,7 @@ class JPEG_mutator:
             # --- INDEPENDENT PROBABILITY CHECK FOR EACH FIELD ---
             if random.choice([False, True]):
 
-                current_value = getattr(data_object, field_name)
+                current_value = getattr(data, field_name)
 
                 # Randomly choose between Bit Flip and Byte Flip
                 if random.choice([False, True]):
@@ -258,9 +281,9 @@ class JPEG_mutator:
                     mutated_value = _random_val(bit_size)
 
                 # Assign the mutated value back to the object
-                setattr(data_object, field_name, mutated_value)
+                setattr(data, field_name, mutated_value)
 
-        return data_object
+        return marker, length, data, order
     
     @staticmethod
     def single_segment_agnostic_mutation(segment: tuple):

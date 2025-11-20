@@ -55,34 +55,53 @@ class JPEGparser:
                 segment_data = getattr(segment, 'data', None)
                 segment_length = getattr(segment, 'length', None)
                 full_marker = (0xff << 8) | segment.marker.value
-                self.markers.setdefault(segment_name,[]).append((full_marker, segment_length, segment_data, order, segment))
+                
+                if full_marker != 0xffda:
+                    if full_marker == 0xffc4:
+                        segment_data = self.dht_table_parse(segment_data)
+                    to_append = (full_marker, segment_length, segment_data, order)
+                else:
+                    to_append = (full_marker, segment_length, segment_data, order, segment)
+                self.markers.setdefault(segment_name,[]).append(to_append)
             
             return self.markers, data
         except Exception as e:
             print(f"An error occured during Parsing: {e}")
 
     # Parse Huffman Table
-    def dht_table_parse(self, dht_elem: tuple) -> list:
-        dht_data = dht_elem[1]
-        
+    def dht_table_parse(self, dht_data) -> list:        
         table_data = []
          
         curr = 0
         while curr < len(dht_data):
             curr_table = dht_data[curr:]
-            table_id = curr_table[:1]
+            table_HT_information = curr_table[:1]
             code_lengths = curr_table[1: 17]
 
-            table_length = sum(code_lengths)
+            table_length = sum(list(code_lengths))
             code_table = curr_table[17: table_length + 17]
             table_data.append({
-                'table_id': table_id, 
+                'table_id': table_HT_information, 
                 'code_lengths': code_lengths,
                 'table': code_table
             })
 
             curr += table_length + 17
         return table_data
+
+    def dht_table_reconstructor(self, marker, length, data):
+        raw_segment = struct.pack(
+            '>HH',
+            marker,
+            length
+        )
+        
+        for table in data:
+            table_HT_information = table['table_id']
+            code_lengths = table['code_lengths']
+            code_table = table['table']
+            raw_segment += table_HT_information + code_lengths + code_table
+        return raw_segment
 
     def dqt_parse(self, segment: tuple):
         data = segment[2]
@@ -182,7 +201,11 @@ class JPEGparser:
 
         reconstructed_segments = []
 
-        for marker_val, length, data_payload, order, segment in segments_ordered:
+        for segment_tuple in segments_ordered:
+            if len(segment_tuple) == 5:
+                marker_val, length, data_payload, order, s = segment_tuple
+            elif len(segment_tuple) == 4:
+                marker_val, length, data_payload, order = segment_tuple
 
             processed_data = data_payload
 
@@ -192,6 +215,9 @@ class JPEGparser:
  
             elif marker_val in (0xffc0, 0xffc1, 0xffc2):
                 raw_segment = self.sof_reconstruction(marker_val, length, data_payload)
+
+            elif marker_val == 0xffc4:
+                raw_segment = self.dht_reconstructor(marker_val, length, data_payload)
 
             elif marker_val == 0xffe0:
                 raw_segment = self.app0_reconstruction(marker_val, length, data_payload)

@@ -38,12 +38,14 @@ class JPEGFuzzer:
             return JPEG_mutator.insert_random_markers(self.raw_bytes)
 
         app0 = self.segments['app0'][0]
-        dht = self.segments['dht'][0]
+        dht = self.segments['dht']
         sos = self.segments['sos'][0]
         
         sof_keys = ['sof0', 'sof1', 'sof2', 'sof3']
+        sof_version = ''
         for key in sof_keys:
             if key in self.segments:
+                sof_version = key
                 sof = self.segments[key][0]
         
         image_data = sos[4].image_data
@@ -52,20 +54,20 @@ class JPEGFuzzer:
         #    mutate_bytes = double_markers(self.jpg_bytes, len(self.jpg_bytes), marker)
             
         if random.choice([False, True]):
-            self.segments['app0'] = JPEG_mutator.app0_mutation(app0)
+            self.segments['app0'][0] = JPEG_mutator.app0_mutation(app0)
 
         if random.choice([False, True]):
-            self.segments['dht'] = JPEG_mutator.huffman_mutate(dht) # the i havent put together the parse here, its in jpeg_parser.py tho
+            self.segments['dht'] = JPEG_mutator.dht_mutate(dht)
 
         if random.choice([False, True]):
-            self.segments['sos'] = JPEG_mutator.sos_mutate(sos, random.choice([False, True])) # again, still in jpeg_parser.py
+            self.segments['sos'][0] = JPEG_mutator.sos_mutate(sos, random.choice([False, True])) # again, still in jpeg_parser.py
         
         if random.choice([False, True]):
-            self.segments['sof'] = JPEG_mutator.sof_mutate(sof) # same
+            self.segments[sof_version][0] = JPEG_mutator.sof_mutate(sof) # same
 
         if random.choice([False, True]):
-            self.segments['sos'][4].image_data = JPEG_mutator.sos_imagedata_mutation(image_data)
+            self.segments['sos'][0][4].image_data = JPEG_mutator.sos_imagedata_mutation(image_data)
  
-        return self.parser.jpeg_constructor(self.markers)
+        return self.parser.jpeg_constructor(self.segments)
         
             
