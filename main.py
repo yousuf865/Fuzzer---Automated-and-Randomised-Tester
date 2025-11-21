@@ -1,7 +1,6 @@
 import glob
 # Custom imports/defined classes
 from fuzzer import Fuzzer
-from textwrap import indent
 fuzzer = Fuzzer()
 
 def print_error_report(error_dict):

@@ -1,5 +1,4 @@
 import random
-import csv
 import re
 
 class Mutations:
@@ -102,13 +101,6 @@ class Mutations:
             mutated_payload += line
 
         return mutated_payload
-    
-    # TODO
-    def keyword_extraction(self):
-        return data_bytes
-
-    def coverage_based_mutation(self):
-        return
 
     # Run each general mutation strategy
     def run_mutation_strategies(self, input_file, input_type, strategy):
@@ -126,8 +118,8 @@ class Mutations:
         if strategy == 'known_ints':
             mutated_payload = self.known_ints(input_file)
 
-        if strategy == 'arithmetic':
-            mutated_payload = self.arithmetic_mutation(input_file)
+        
+        mutated_payload = self.arithmetic_mutation(input_file)
 
         # print(strategy + '------------' + mutated_payload)
 

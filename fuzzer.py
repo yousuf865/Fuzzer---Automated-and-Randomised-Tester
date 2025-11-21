@@ -14,6 +14,7 @@ from fuzzers.xml_fuzzer import XMLFuzzer
 from fuzzers.plaintext_fuzzer import PlainTextFuzzer
 from fuzzers.xml_fuzzer import XMLFuzzer
 from mutations import Mutations
+from collections import Counter
 
 
 csv_fuzzer = CSVFuzzer()
@@ -43,6 +44,32 @@ class Fuzzer:
                 os.remove(file_path)
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
+                
+    def check_for_csv(self, bin_name: str) -> bool:
+        # Try to read the example input and refine detection for ASCII files
+        try:
+            with open(f"example_inputs/{bin_name}.txt", "r", errors="ignore") as _f:
+                sample = _f.read()
+                lines = sample.splitlines()
+                lines = [ln for ln in lines if ln.strip()]
+                if lines:
+                    comma_counts = [ln.count(',') for ln in lines]
+                    # all lines have same non-zero number of commas -> treat as CSV
+                    if len(set(comma_counts)) == 1 and comma_counts[0] > 0:
+                        return True
+                    else:
+                        # fallback: if a strong majority of lines share the same non-zero comma count, treat as CSV
+                        cnt = Counter(comma_counts)
+                        most_common_count, freq = cnt.most_common(1)[0]
+                        if most_common_count > 0 and freq >= max(1, int(0.8 * len(comma_counts))):
+                            return True
+                        else:
+                            return False
+                else:
+                    return False
+        except Exception:
+            sample = ""
+        return False
     ### WIP!
     # TODO: Possibly make the tests more predefined to make it less taxing
     def run_target(self, src: str, payload: str):
@@ -99,7 +126,7 @@ class Fuzzer:
             return True
         return False
     
-    def sample_name(self, bin_name: str, file_type, file_type_dict: dict, num_tests: int = 100):
+    def do_fuzzin(self, bin_name: str, file_type, file_type_dict: dict, num_tests: int = 100):
         start_time = time.time()
         sleep_count = 0
         loop_count = 0
@@ -224,8 +251,9 @@ class Fuzzer:
         file_type = file_magic.from_file(f"example_inputs/{bin_name}.txt")
         if "HTML" in file_type:
           file_type = "XML"
-        if 'csv' in bin_name:
-            file_type = "CSV"
+        if "ASCII" in file_type and "CSV" not in file_type:
+            if self.check_for_csv(bin_name):
+                file_type = "CSV"
 
         file_type_dict = {
             "CSV": csv_fuzzer,
@@ -234,4 +262,4 @@ class Fuzzer:
             "XML": xml_fuzzer,
             "data": plaintext_fuzzer   
         }
-        return self.sample_name(bin_name, file_type, file_type_dict, num_tests)
+        return self.do_fuzzin(bin_name, file_type, file_type_dict, num_tests)
