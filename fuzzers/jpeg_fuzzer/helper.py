@@ -31,7 +31,7 @@ class JPEG_mutator:
     #}
     # original_huffman = array of table_data
     @staticmethod
-    def huffman_mutate(segment, mutate_table_id=None, mutate_code_amounts=None):
+    def huffman_mutate(segment, symbol_num_desync=None, mutate_table_id=None, mutate_code_amounts=None):
         try:
             marker, length, dht, order = segment
         except ValueError:
@@ -54,10 +54,11 @@ class JPEG_mutator:
                 random.randint(0, len(code_values_ba) - 1)
             )
             
-            table_data['table_id'] = struct.pack('>B', random.randint(0, 0x1F)) 
+            if mutate_table_id is True:
+                table_data['table_id'] = struct.pack('>B', random.randint(0, 0x1F)) 
 
-            total_code_count_change = 0
-            
+            curr_idx = 0
+
             for i in range(16):
                 current_count = code_lengths_list[i]
                 
@@ -70,15 +71,20 @@ class JPEG_mutator:
                 if change_amount == 0:
                     continue
                 
-                code_lengths_list[i] += change_amount
-                total_code_count_change += change_amount
-            
-            if total_code_count_change != 0:
-                if total_code_count_change > 0:
+                curr_idx += code_lengths_list[i]
+
+                if change_amount > 0:
                     new_bytes = bytes([random.randint(0, 0xFF) for _ in range(total_code_count_change)])
-                    code_values_ba.extend(new_bytes)
+                    code_values_ba[curr_idx:curr_idx] = new_bytes 
                 else:
-                    code_values_ba = code_values_ba[:len(code_values_ba) + total_code_count_change]
+                    del code_values_ba[curr_idx + change_amount:curr_idx]
+                
+                curr_idx += change_amount
+
+                if symbol_num_desync and random.choice([False, True]):
+                    continue
+
+                code_lengths_list[i] += change_amount
             
             table_data['code_lengths'] = bytes(code_lengths_list) 
             table_data['table'] = bytes(code_values_ba) 

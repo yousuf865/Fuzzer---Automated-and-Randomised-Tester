@@ -7,7 +7,7 @@ from pwn import *
 # --- Global Fuzz Target and Input File Path ---
 TARGET_PATH = "./binaries/jpg1"
 # Using the specific path confirmed by the user
-INPUT_FILE_PATH = "../oskar-smethurst-B1GtwanCbiw-unsplash.jpg"
+INPUT_FILE_PATH = "example_inputs/jpg1.txt"
 
 def test_io_path():
     """

@@ -2,7 +2,7 @@ import jpeg_parser
 
 parser = jpeg_parser.JPEGparser()
 
-segments, raw_data = parser.parse('../../../oskar-smethurst-B1GtwanCbiw-unsplash.jpg')
+segments, raw_data = parser.parse('../../example_inputs/jpg1.txt')
 
 
 print(segments['sos'][0])

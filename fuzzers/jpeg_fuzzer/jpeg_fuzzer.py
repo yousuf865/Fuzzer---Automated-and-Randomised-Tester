@@ -59,10 +59,12 @@ class JPEGFuzzer:
         
         image_data = sos[4].image_data
         
-        if image_data_only:
+        if image_data_bool:
+            print('only mutating image data------')
             self.segments['sos'][0][4].image_data = JPEG_mutator.sos_imagedata_mutation(image_data)
             return self.parser.jpeg_constructor(self.segments)
     
+        print('mutating values---------')
         #for marker in jpg_marker_bytes.values():
         #    mutate_bytes = double_markers(self.jpg_bytes, len(self.jpg_bytes), marker)
             
@@ -78,7 +80,7 @@ class JPEGFuzzer:
         if random.choice([False, True]) and sof_bool:
             self.segments[sof_version][0] = JPEG_mutator.sof_mutate(sof) # same
 
-        if random.choice([False, True]) and image_data_bool:
+        if random.choice([False, True]) and (image_data_bool is None or image_data_bool) :
             self.segments['sos'][0][4].image_data = JPEG_mutator.sos_imagedata_mutation(image_data)
  
         return self.parser.jpeg_constructor(self.segments)
