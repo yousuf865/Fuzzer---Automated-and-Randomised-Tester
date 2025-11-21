@@ -114,7 +114,11 @@ class Fuzzer:
         for item in file_type_dict.keys():      
             if item in file_type:
                 input_type = item
+
+            if item.lower() in bin_name.lower():
+                input_type = item
                 break
+
         # check for imp
         if input_type in file_type_dict.keys():
             if bin_name in max_val_bin.keys():

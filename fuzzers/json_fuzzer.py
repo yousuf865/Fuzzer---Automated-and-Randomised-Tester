@@ -5,8 +5,8 @@ import string
 import json
 class JSONFuzzer:
     def __init__(self):
-        self.max_val = 257
-        self.min_val = 0
+        self.max_val = 2147483648
+        self.min_val = -2147483648
 
     def get_max_val(self):
         return self.max_val
@@ -77,8 +77,6 @@ class JSONFuzzer:
                 payload = f"{random_str}"
                 mutation_type.clear()
                 mutation_type.append("Non-Json Payload")
-                
-
                 #return json.dumps(payload),mutation_type 
         else:
             # This just means the structure is normal

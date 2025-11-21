@@ -30,7 +30,8 @@ echo "Docker container built successfully"
 
 # Run the image, mounting /binaries as read-only and /fuzzer_output
 echo "Running Fuzzer"
-docker run -v "$(pwd)/binaries":/binaries:ro -v "$(pwd)/example_inputs":/example_inputs:ro -v "$(pwd)/fuzzer_output":/fuzzer_output fuzzer-image
+docker run fuzzer-image
+# docker run -v "$(pwd)/binaries":/binaries:ro -v "$(pwd)/example_inputs":/example_inputs:ro -v "$(pwd)/fuzzer_output":/fuzzer_output fuzzer-image
 # docker run -v ./binaries:/binaries:ro -v ./example_inputs:/example_inputs:ro -v ./fuzzer_output:/fuzzer_output fuzzer-image
 # docker run -v "$(pwd)/binaries":/binaries:ro -v "$(pwd)/example_inputs":/example_inputs:ro -v "$(pwd)/fuzzer_output":/fuzzer_output fuzzer-image
 

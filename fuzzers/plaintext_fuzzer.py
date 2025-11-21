@@ -1,7 +1,8 @@
 import random, string
 class PlainTextFuzzer:
     def __init__(self):
-        self.max_val = 100
+        self.max_val = 2147483648
+        self.min_val = -2147483648
     
     def get_max_val(self):
         return self.max_val
