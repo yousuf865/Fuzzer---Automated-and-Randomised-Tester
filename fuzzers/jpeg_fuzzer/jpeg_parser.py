@@ -140,8 +140,10 @@ class JPEGparser:
             data.num_components
         )
         
+        print('SOS data.num_components: ' + str(data.num_components))
+        print('SOS data.component length: ' + str(len(data.components)))
         # FOR SOS PROBABLY JUST KEEP THE NUM_COMPONENTS AND COMPONENTS SYNCED UP
-        for i in range(data.num_components):
+        for i in range(len(data.components)):
             raw_segment += struct.pack('>BB', data.components[i].id, data.components[i].huffman_table)
         
         raw_segment += struct.pack(

@@ -30,7 +30,7 @@ else:
             print(f"[{segment_name}] Data: {segment_data}")
 
             if segment.marker == 0xc2:
-                print(f"num_____: {getattr(segment_data, 'image_height')}")
+                print(f"num_____: {getattr(segment_data, 'num_components')}")
 
 
     except Exception as e:

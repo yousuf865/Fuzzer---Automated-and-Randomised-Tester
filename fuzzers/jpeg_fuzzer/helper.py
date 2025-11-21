@@ -15,8 +15,11 @@ class JPEG_mutator:
     @staticmethod
     def dht_mutate(dht, mutate_table_id=None, mutate_code_amounts=None):
         indeces = [_ for _ in range(0, len(dht) - 1)]
-
-        for i in range(random.randint(0, len(dht))):
+        
+        print('dht tables: ' + str(len(indeces)))
+        mutate_amount = random.randint(0, len(dht) - 1)
+        for i in range(mutate_amount):
+            print(indeces)
             idx = random.choice(indeces)
             indeces.remove(idx)
             
@@ -49,7 +52,7 @@ class JPEG_mutator:
             code_values_ba = bytearray(table_data['table']) 
             code_lengths_list = list(table_data['code_lengths'])
             
-            code_values_ba = Mutations.bit_flip(
+            code_values_ba = Mutations().bit_flip(
                 code_values_ba, 
                 random.randint(0, len(code_values_ba) - 1)
             )
@@ -74,7 +77,7 @@ class JPEG_mutator:
                 curr_idx += code_lengths_list[i]
 
                 if change_amount > 0:
-                    new_bytes = bytes([random.randint(0, 0xFF) for _ in range(total_code_count_change)])
+                    new_bytes = bytes([random.randint(0, 0xFF) for _ in range(change_amount)])
                     code_values_ba[curr_idx:curr_idx] = new_bytes 
                 else:
                     del code_values_ba[curr_idx + change_amount:curr_idx]
@@ -128,7 +131,7 @@ class JPEG_mutator:
 
             if random.choice([True,False]):
                 ret = data - r
-                return ret if ret <= 0 else 1
+                return ret if ret >= 0 else 1
             else:
                 return data + r
 
