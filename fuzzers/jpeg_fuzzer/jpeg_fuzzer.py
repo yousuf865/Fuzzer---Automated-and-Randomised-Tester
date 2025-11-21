@@ -93,6 +93,7 @@ class JPEGFuzzer:
         mutated_jpeg_bytes = self.parser.jpeg_constructor(self.segments)
         
         if random.choice([False, True]) and insert_random_marker:
+            print('------> inserting random markers')
             return JPEG_mutator.insert_random_markers(mutated_jpeg_bytes, self.segments)
 
         return mutated_jpeg_bytes

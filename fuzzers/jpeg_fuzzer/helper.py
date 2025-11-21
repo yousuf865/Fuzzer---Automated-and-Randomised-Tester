@@ -96,13 +96,14 @@ class JPEG_mutator:
 
     # random position of a marker (possibly making it double)
     @staticmethod
-    def insert_random_markers(jpg_bytes, segments, marker_dup_count=None):
+    def insert_random_markers(jpg_bytes, segments, marker_mutate_count=None, marker_dup_count=None):
         data = bytearray(jpg_bytes)
+        jpg_length = len(data)
 
         mutate_count = 1 if marker_mutate_count is None else marker_mutate_count
 
         for i in range(mutate_count):
-            marker = random.choice(list(segments.values()))[0]
+            marker = random.choice(list(segments.values()))[0][0]
             marker_bytes = struct.pack('>H', marker)
 
             r = random.randint(0, jpg_length)
