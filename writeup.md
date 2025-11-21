@@ -67,9 +67,24 @@ The xml fuzzer follows the same process in deriving attributes from the valid in
 These are all booleans and whether it's true of false determines whether this attribute is mutated or not.
 
 #### jpeg_fuzzer.py
-The jpeg fuzzer follows the same process in deriving attributes from the valid input file. The attributes to mutate are SOF (Start of Frame), SOS (Start of Scan), APP0 segment, and the DHT (Define Huffman Table).
+The jpeg fuzzer follows the same process in deriving attributes from the valid input file. 
+We use Kaitaistruct in helping us seperate the jpeg markers
 
-These are all booleans and whether it's true of false determines whether this attribute is mutated or not.
+The jpeg is first parsed on each markers, put into their own segments and made into a dictionary where the keys are the names of the segments and the values are lists of segment data which has (marker, length, data, order) and for specifically SOS, we have an extra (segment) in it.
+
+The attributes that can be mutated in the mutation_parameters in jpeg_fuzzer are SOF (Start of Frame), SOS (Start of Scan), APP0 segment, the DHT (Define Huffman Table), image data (the compresses image stream), and markers.
+
+These are all booleans and whether it's true of false determines whether this attribute is would have a change to be mutated or not.
+
+In each of these segments, they are further parsed into their seperate structures which are then going to be mutated accordingly. For example, the DHT segment may have the table mutated, the amount of codes changed. Parts that are closely related to each other such as number of components and the components themselves in the SOF segment maybe mutated to be in sync or not, i.e. whether if a component is added the number of components is also increased or not.
+
+Before being sent out, the jpeg is then reconstructed from these segments (might be mutated or not) back into a single file in bytes. 
+
+**JPEG fuzzer files:**
+* `Helper.py` the mutation class (JPEG_mutator)
+* `Jpeg_parser.py` ==> the parser and reconstructor class
+* `Jpeg_fuzzer.py` ==> the integrated fuzzer for jpeg
+* `jpeg.ksy` ==> the jpeg parse definition in the kaitaistruct language
 
 ## Bugs Our Fuzzer Can Detect
 Through the above mentioned mutation strategies, the fuzzer can detect
@@ -122,3 +137,4 @@ An idea we had for this was to make a GUI that would display to a user the opera
 This would also have the option of specifying where the inputs will be taken. In the current fuzzer, it's assumed that the programs will always take input from stdin and this input will be the only thing they take. With this customisation option, it can more closely reflect the real-world complexity of programs that take input at different stages.
 
 These features would make the app highly desirable by all sorts of companies, as a simple GUI frontend can let the clients control the way they want to fuzz test their programs, without having to implement the fuzzing logic themselves.
+
