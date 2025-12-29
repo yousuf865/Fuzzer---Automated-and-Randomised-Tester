@@ -1,4 +1,4 @@
-# Group /fuzz/sh's Fuzzer:
+# Fuzzer - Automated and Randomised Tester
 
 This fuzzer automates testing software applications that accept user-supplied files by generating random CSV, JPEG, JSON, plaintext, XML, and PDF input files.
 
@@ -131,5 +131,6 @@ An idea we had for this was to make a GUI that would display to a user the opera
 This would also have the option of specifying where the inputs will be taken. In the current fuzzer, it's assumed that the programs will always take input from stdin and this input will be the only thing they take. With this customisation option, it can more closely reflect the real-world complexity of programs that take input at different stages.
 
 These features would make the app highly desirable by all sorts of companies, as a simple GUI frontend can let the clients control the way they want to fuzz test their programs, without having to implement the fuzzing logic themselves.
+
 
 
